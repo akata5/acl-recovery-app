@@ -3,6 +3,25 @@ import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
+// Helper function to safely convert Firestore timestamp to Date
+const convertTimestampToDate = (timestamp) => {
+  if (!timestamp) return new Date();
+  
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+  
+  if (timestamp.seconds) {
+    return new Date(timestamp.seconds * 1000);
+  }
+  
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  
+  return new Date(timestamp);
+};
+
 export default function HistoryScreen() {
   const [logs, setLogs] = useState([]);
 
@@ -11,10 +30,12 @@ export default function HistoryScreen() {
       try {
         const snapshot = await getDocs(collection(db, 'logs'));
         const data = snapshot.docs.map(doc => doc.data());
-        const sorted = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const sorted = data.sort((a, b) => 
+          convertTimestampToDate(b.timestamp) - convertTimestampToDate(a.timestamp)
+        );
         setLogs(sorted);
       } catch (error) {
-        console.error('Error fetching history:', error);
+        console.error('Error fetching logs:', error);
       }
     };
 
@@ -35,7 +56,9 @@ export default function HistoryScreen() {
               <Text style={styles.cardTitle}>Log #{logs.length - index}</Text>
               <Text>Pain: {item.pain}</Text>
               <Text>Activity: {item.activity}</Text>
-              <Text style={styles.timestamp}>{item.timestamp}</Text>
+              <Text style={styles.timestamp}>
+                {convertTimestampToDate(item.timestamp).toLocaleString()}
+              </Text>
             </View>
           )}
         />

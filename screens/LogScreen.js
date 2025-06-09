@@ -1,24 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Button, ScrollView } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig'; // adjust path if needed
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
-
-// define logscreen
 export default function LogScreen({ navigation }) {
-  // state variables for pain level, activity, confirmation message, and all logs
   const [painLevel, setPainLevel] = useState(0);
   const [activity, setActivity] = useState('');
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState([]);
-  const [exercisesText, seteExercisesText] = useState('');
+  const [exercisesText, setExercisesText] = useState('');
 
   return (
-    // wrap the entire screen in a scroll view so the list can scroll
     <ScrollView contentContainerStyle={styles.container}>
-      
-      {/* Pain Level Card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Pain Level: {painLevel}</Text>
         <Slider
@@ -34,7 +28,6 @@ export default function LogScreen({ navigation }) {
         />
       </View>
 
-      {/* Activity Notes Card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Activity Notes:</Text>
         <TextInput
@@ -56,8 +49,6 @@ export default function LogScreen({ navigation }) {
         />
       </View>
 
-
-      {/* Submit Button Card */}
       <View style={styles.card}>
         <Button
           title="Submit Log"
@@ -66,15 +57,20 @@ export default function LogScreen({ navigation }) {
               pain: painLevel,
               activity: activity,
               exercises: exercisesText,
-              timestamp: new Date().toLocaleString(),
+              timestamp: serverTimestamp(), // Use serverTimestamp instead of new Date()
             };
             console.log('📤 Submitting log:', newLog);
             try {
               console.log('📤 Attempting to write to Firestore...', newLog);
-              await addDoc(collection(db, 'logs'), newLog); // Save to Firestore
+              await addDoc(collection(db, 'logs'), newLog);
               setMessage('Log saved to Firebase!');
               setActivity('');
-              navigation.navigate('Home', { latestLog: newLog });
+              // Create a local version with current date for navigation
+              const localLog = { 
+                ...newLog, 
+                timestamp: new Date().toISOString() // Convert to string
+              };
+              navigation.navigate('Home', { latestLog: localLog });
             } catch (error) {
               console.log('❌ Error writing log:', error);
               setMessage('Failed to save log.');
@@ -84,25 +80,25 @@ export default function LogScreen({ navigation }) {
         {message !== '' && <Text style={styles.message}>{message}</Text>}
       </View>
 
-      {/* Log History Display */}
       {logs.map((log, index) => (
         <View key={index} style={styles.card}>
           <Text style={styles.cardTitle}>Log #{index + 1}</Text>
           <Text>Pain Level: {log.pain}</Text>
           <Text>Activity: {log.activity}</Text>
-          <Text style={styles.timestamp}>{log.timestamp}</Text>
+          <Text style={styles.timestamp}>
+            {convertTimestampToDate(log.timestamp).toLocaleString()}
+          </Text>
         </View>
       ))}
     </ScrollView>
   );
 }
 
-// reusable styles using stylesheet api
 const styles = StyleSheet.create({
   container: {
     padding: 20,
     backgroundColor: '#f2f2f2',
-    flexGrow: 1, // required for ScrollView to expand
+    flexGrow: 1,
   },
   card: {
     backgroundColor: '#fff',
@@ -113,7 +109,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
-    elevation: 3, // for Android shadow
+    elevation: 3,
   },
   cardTitle: {
     fontSize: 16,
