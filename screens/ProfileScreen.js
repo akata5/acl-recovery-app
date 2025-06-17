@@ -3,8 +3,12 @@ import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { db } from '../firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
+import { lightColors, darkColors } from '../theme'; // ✅ import theme colors
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ theme }) {
+  const isDark = theme === 'dark';
+  const colors = isDark ? darkColors : lightColors;
+
   const [surgeryDate, setSurgeryDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [weight, setWeight] = useState('');
@@ -25,6 +29,41 @@ export default function ProfileScreen() {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      padding: 20,
+      backgroundColor: colors.background,
+      flex: 1,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 20,
+      color: colors.text,
+    },
+    label: {
+      fontWeight: 'bold',
+      marginTop: 15,
+      color: colors.text,
+    },
+    input: {
+      borderColor: '#ccc',
+      borderWidth: 1,
+      borderRadius: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      marginBottom: 10,
+      marginTop: 5,
+      color: colors.inputText,
+      backgroundColor: colors.inputBackground,
+    },
+    message: {
+      marginTop: 15,
+      fontWeight: 'bold',
+      color: 'green',
+    },
+  });
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🧍 Your Profile</Text>
@@ -35,7 +74,7 @@ export default function ProfileScreen() {
         <DateTimePicker
           value={surgeryDate}
           mode="date"
-          display="default"
+          display="spinner"
           onChange={(_, selectedDate) => {
             setShowDatePicker(false);
             if (selectedDate) setSurgeryDate(selectedDate);
@@ -50,6 +89,7 @@ export default function ProfileScreen() {
         value={weight}
         onChangeText={setWeight}
         placeholder="e.g. 150"
+        placeholderTextColor={colors.placeholder}
       />
 
       <Text style={styles.label}>Quad Strength (LSI %):</Text>
@@ -59,6 +99,7 @@ export default function ProfileScreen() {
         value={quadLSI}
         onChangeText={setQuadLSI}
         placeholder="e.g. 85"
+        placeholderTextColor={colors.placeholder}
       />
 
       <Button title="Save Profile" onPress={handleSave} />
@@ -66,23 +107,3 @@ export default function ProfileScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f2f2f2', flex: 1 },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
-  label: { fontWeight: 'bold', marginTop: 15 },
-  input: {
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 10,
-    marginTop: 5,
-  },
-  message: {
-    marginTop: 15,
-    fontWeight: 'bold',
-    color: 'green',
-  },
-});

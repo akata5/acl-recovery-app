@@ -3,13 +3,72 @@ import { View, Text, StyleSheet, TextInput, Button, ScrollView } from 'react-nat
 import Slider from '@react-native-community/slider';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { lightColors, darkColors } from '../theme'; // ✅ import colors
 
-export default function LogScreen({ navigation }) {
+const convertTimestampToDate = (timestamp) => {
+  if (!timestamp) return new Date();
+  if (timestamp instanceof Date) return timestamp;
+  if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+  if (typeof timestamp === 'number') return new Date(timestamp);
+  return new Date(timestamp);
+};
+
+export default function LogScreen({ navigation, theme }) {
+  const isDark = theme === 'dark';
+  const colors = isDark ? darkColors : lightColors;
+
   const [painLevel, setPainLevel] = useState(0);
   const [activity, setActivity] = useState('');
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState([]);
   const [exercisesText, setExercisesText] = useState('');
+
+  const styles = StyleSheet.create({
+    container: {
+      padding: 20,
+      backgroundColor: colors.background,
+      flexGrow: 1,
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOpacity: 0.1,
+      shadowOffset: { width: 0, height: 2 },
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    cardTitle: {
+      fontSize: 16,
+      marginBottom: 10,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    input: {
+      height: 40,
+      borderColor: '#ccc',
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      borderRadius: 5,
+      color: colors.inputText,
+      backgroundColor: colors.inputBackground,
+    },
+    text: {
+      color: colors.text,
+    },
+    message: {
+      marginTop: 10,
+      color: 'green',
+      fontWeight: 'bold',
+    },
+    timestamp: {
+      fontSize: 12,
+      color: colors.subtext,
+      marginTop: 10,
+    },
+  });
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -35,6 +94,7 @@ export default function LogScreen({ navigation }) {
           placeholder="What did you do today?"
           value={activity}
           onChangeText={setActivity}
+          placeholderTextColor={colors.placeholder}
         />
       </View>
 
@@ -46,6 +106,7 @@ export default function LogScreen({ navigation }) {
           value={exercisesText}
           onChangeText={setExercisesText}
           multiline
+          placeholderTextColor={colors.placeholder}
         />
       </View>
 
@@ -57,18 +118,15 @@ export default function LogScreen({ navigation }) {
               pain: painLevel,
               activity: activity,
               exercises: exercisesText,
-              timestamp: serverTimestamp(), // Use serverTimestamp instead of new Date()
+              timestamp: serverTimestamp(),
             };
-            console.log('📤 Submitting log:', newLog);
             try {
-              console.log('📤 Attempting to write to Firestore...', newLog);
               await addDoc(collection(db, 'logs'), newLog);
               setMessage('Log saved to Firebase!');
               setActivity('');
-              // Create a local version with current date for navigation
-              const localLog = { 
-                ...newLog, 
-                timestamp: new Date().toISOString() // Convert to string
+              const localLog = {
+                ...newLog,
+                timestamp: new Date().toISOString(),
               };
               navigation.navigate('Home', { latestLog: localLog });
             } catch (error) {
@@ -83,8 +141,8 @@ export default function LogScreen({ navigation }) {
       {logs.map((log, index) => (
         <View key={index} style={styles.card}>
           <Text style={styles.cardTitle}>Log #{index + 1}</Text>
-          <Text>Pain Level: {log.pain}</Text>
-          <Text>Activity: {log.activity}</Text>
+          <Text style={styles.text}>Pain Level: {log.pain}</Text>
+          <Text style={styles.text}>Activity: {log.activity}</Text>
           <Text style={styles.timestamp}>
             {convertTimestampToDate(log.timestamp).toLocaleString()}
           </Text>
@@ -93,45 +151,3 @@ export default function LogScreen({ navigation }) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#f2f2f2',
-    flexGrow: 1,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 16,
-    marginBottom: 10,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-  },
-  message: {
-    marginTop: 10,
-    color: 'green',
-    fontWeight: 'bold',
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 10,
-  },
-});

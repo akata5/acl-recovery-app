@@ -1,23 +1,42 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React, { useState, useEffect } from 'react';
+import { Appearance } from 'react-native';
 
 import HomeScreen from './screens/HomeScreen';
 import LogScreen from './screens/LogScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
-
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [colorScheme, setColorScheme] = useState(Appearance.getColorScheme());
+
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setColorScheme(colorScheme);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  if (!colorScheme) return null; // Wait until theme is known
+
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Log" component={LogScreen} />
-        <Stack.Screen name="History" component={HistoryScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Home">
+          {(props) => <HomeScreen {...props} theme={colorScheme} />}
+        </Stack.Screen>
+        <Stack.Screen name="Log">
+          {(props) => <LogScreen {...props} theme={colorScheme} />}
+        </Stack.Screen>
+        <Stack.Screen name="History">
+          {(props) => <HistoryScreen {...props} theme={colorScheme} />}
+        </Stack.Screen>
+        <Stack.Screen name="Profile">
+          {(props) => <ProfileScreen {...props} theme={colorScheme} />}
+        </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
   );
