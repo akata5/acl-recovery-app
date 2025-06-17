@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { LineChart } from 'react-native-chart-kit';
-import { lightColors, darkColors } from '../theme'; // ✅ import theme
+import { lightColors, darkColors } from '../theme';
+import { generateRecommendation } from '../utils/recommendationEngine';
+import { useNavigation } from '@react-navigation/native';
 
 const convertTimestampToDate = (timestamp) => {
   if (!timestamp) return new Date();
@@ -13,7 +15,8 @@ const convertTimestampToDate = (timestamp) => {
   return new Date(timestamp);
 };
 
-export default function HomeScreen({ route, navigation, theme }) {
+export default function HomeScreen({ route, theme }) {
+  const navigation = useNavigation();
   const isDark = theme === 'dark';
   const colors = isDark ? darkColors : lightColors;
 
@@ -24,9 +27,10 @@ export default function HomeScreen({ route, navigation, theme }) {
   const [logs, setLogs] = useState([]);
   const [streak, setStreak] = useState(0);
   const [chartInfo, setChartInfo] = useState({ labels: [], data: [] });
+  const [aiRecommendation, setAiRecommendation] = useState(null);
 
   useEffect(() => {
-    const fetchLogs = async () => {
+    const fetchData = async () => {
       try {
         const snapshot = await getDocs(collection(db, 'logs'));
         const data = snapshot.docs.map(doc => doc.data());
@@ -67,49 +71,64 @@ export default function HomeScreen({ route, navigation, theme }) {
         const chartData = sortedLogs.map(log => log.pain);
 
         setChartInfo({ labels: chartLabels, data: chartData });
+
+        // Generate AI recommendation
+        const recommendation = await generateRecommendation();
+        setAiRecommendation(recommendation);
       } catch (error) {
-        console.error('Error fetching logs:', error);
+        console.error('Error fetching data:', error);
       }
     };
 
-    fetchLogs();
+    fetchData();
   }, []);
-
-  const recommendation = latestLog
-    ? latestLog.pain >= 7
-      ? 'High pain today — take a rest day and ice your knee.'
-      : latestLog.pain >= 4
-      ? 'Moderate pain — do light PT and avoid high strain.'
-      : 'Pain is low — continue your rehab exercises and add resistance if ready.'
-    : 'Submit a log to get a personalized recommendation.';
 
   const styles = StyleSheet.create({
     container: {
-      padding: 20,
+      flex: 1,
       backgroundColor: colors.background,
-      flexGrow: 1,
+    },
+    header: {
+      padding: 20,
+      paddingTop: 60,
     },
     title: {
-      fontSize: 20,
+      fontSize: 32,
       fontWeight: 'bold',
-      marginBottom: 20,
+      marginBottom: 8,
       color: colors.text,
     },
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: 12,
+    subtitle: {
+      fontSize: 18,
+      opacity: 0.7,
+      color: colors.text,
+    },
+    content: {
       padding: 20,
+    },
+    card: {
+      padding: 20,
+      borderRadius: 10,
       marginBottom: 20,
+      backgroundColor: colors.card,
       shadowColor: '#000',
-      shadowOpacity: 0.1,
-      shadowOffset: { width: 0, height: 2 },
-      shadowRadius: 6,
-      elevation: 3,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
     },
     cardTitle: {
-      fontSize: 16,
+      fontSize: 20,
       fontWeight: 'bold',
-      marginBottom: 10,
+      marginBottom: 8,
+      color: colors.text,
+    },
+    cardDescription: {
+      fontSize: 16,
+      opacity: 0.7,
       color: colors.text,
     },
     text: {
@@ -123,87 +142,119 @@ export default function HomeScreen({ route, navigation, theme }) {
   });
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Welcome Back 👋</Text>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>ACL Recovery</Text>
+        <Text style={styles.subtitle}>Track your progress</Text>
+      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Most Recent Log</Text>
-        {latestLog ? (
-          <>
+      <View style={styles.content}>
+        {latestLog && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Most Recent Log</Text>
             <Text style={styles.text}>Pain Level: {latestLog.pain}</Text>
             <Text style={styles.text}>Activity: {latestLog.activity}</Text>
             <Text style={styles.timestamp}>
               {convertTimestampToDate(latestLog.timestamp).toLocaleString()}
             </Text>
-          </>
-        ) : (
-          <Text style={styles.text}>No logs submitted yet.</Text>
+          </View>
         )}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>🔥 Streak</Text>
+          <Text style={styles.text}>
+            You've logged {streak} {streak === 1 ? 'day' : 'days'} in a row
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>📈 Pain Trend</Text>
+          {chartInfo.data.length > 0 ? (
+            <LineChart
+              data={{
+                labels: chartInfo.labels,
+                datasets: [{ data: chartInfo.data }],
+              }}
+              width={Dimensions.get('window').width - 60}
+              height={220}
+              yAxisSuffix=""
+              yAxisInterval={1}
+              chartConfig={{
+                backgroundColor: colors.card,
+                backgroundGradientFrom: colors.card,
+                backgroundGradientTo: colors.card,
+                decimalPlaces: 0,
+                color: (opacity = 1) =>
+                  isDark
+                    ? `rgba(144, 238, 144, ${opacity})`
+                    : `rgba(31, 178, 138, ${opacity})`,
+                labelColor: (opacity = 1) =>
+                  isDark ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
+                propsForDots: {
+                  r: '4',
+                  strokeWidth: '2',
+                  stroke: isDark ? '#90ee90' : '#1FB28A',
+                },
+              }}
+              bezier
+              style={{ marginVertical: 8, borderRadius: 12 }}
+            />
+          ) : (
+            <Text style={styles.text}>No data yet. Log pain to see your chart.</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>🤖 AI-Powered Recommendation</Text>
+          {aiRecommendation ? (
+            <>
+              <Text style={styles.text}>{aiRecommendation.recommendation}</Text>
+              <View style={{ marginTop: 10 }}>
+                <Text style={[styles.text, { fontSize: 12, color: colors.subtext }]}>
+                  Based on:
+                </Text>
+                {aiRecommendation.factors.map((factor, index) => (
+                  <Text key={index} style={[styles.text, { fontSize: 12, color: colors.subtext }]}>
+                    • {factor}
+                  </Text>
+                ))}
+              </View>
+            </>
+          ) : (
+            <Text style={styles.text}>Generating personalized recommendation...</Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('Log')}
+        >
+          <Text style={styles.cardTitle}>Log Recovery</Text>
+          <Text style={styles.cardDescription}>
+            Record your daily progress and symptoms
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('History')}
+        >
+          <Text style={styles.cardTitle}>View History</Text>
+          <Text style={styles.cardDescription}>
+            Track your recovery journey
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('Profile')}
+        >
+          <Text style={styles.cardTitle}>Profile</Text>
+          <Text style={styles.cardDescription}>
+            Manage your account and settings
+          </Text>
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>🔥 Streak</Text>
-        <Text style={styles.text}>
-          You've logged {streak} {streak === 1 ? 'day' : 'days'} in a row
-        </Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>📈 Pain Trend</Text>
-        {chartInfo.data.length > 0 ? (
-          <LineChart
-            data={{
-              labels: chartInfo.labels,
-              datasets: [{ data: chartInfo.data }],
-            }}
-            width={Dimensions.get('window').width - 60}
-            height={220}
-            yAxisSuffix=""
-            yAxisInterval={1}
-            chartConfig={{
-              backgroundColor: colors.card,
-              backgroundGradientFrom: colors.card,
-              backgroundGradientTo: colors.card,
-              decimalPlaces: 0,
-              color: (opacity = 1) =>
-                isDark
-                  ? `rgba(144, 238, 144, ${opacity})`
-                  : `rgba(31, 178, 138, ${opacity})`,
-              labelColor: (opacity = 1) =>
-                isDark ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-                stroke: isDark ? '#90ee90' : '#1FB28A',
-              },
-            }}
-            bezier
-            style={{ marginVertical: 8, borderRadius: 12 }}
-          />
-        ) : (
-          <Text style={styles.text}>No data yet. Log pain to see your chart.</Text>
-        )}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today's Recommendation</Text>
-        <Text style={styles.text}>{recommendation}</Text>
-      </View>
-
-      <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Log')}>
-        <Text style={styles.cardTitle}>➕ Log Today's Recovery</Text>
-        <Text style={{ color: '#1FB28A' }}>Tap to enter pain and activity</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('History')}>
-        <Text style={styles.cardTitle}>📜 View Log History</Text>
-        <Text style={{ color: '#1FB28A' }}>See past entries</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Profile')}>
-        <Text style={styles.cardTitle}>🧍 View Profile</Text>
-        <Text style={{ color: '#1FB28A' }}>Update surgery date and metrics</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }

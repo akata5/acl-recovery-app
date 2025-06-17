@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, ScrollView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { db } from '../firebaseConfig';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { lightColors, darkColors } from '../theme'; // ✅ import theme colors
+import { assessRisk } from '../utils/riskAssessment';
 
 export default function ProfileScreen({ theme }) {
   const isDark = theme === 'dark';
@@ -12,16 +13,57 @@ export default function ProfileScreen({ theme }) {
   const [surgeryDate, setSurgeryDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [weight, setWeight] = useState('');
-  const [quadLSI, setQuadLSI] = useState('');
   const [message, setMessage] = useState('');
+  
+  // Strength measurements
+  const [injuredQuadStrength, setInjuredQuadStrength] = useState('');
+  const [nonInjuredQuadStrength, setNonInjuredQuadStrength] = useState('');
+  const [injuredHamstringStrength, setInjuredHamstringStrength] = useState('');
+  const [nonInjuredHamstringStrength, setNonInjuredHamstringStrength] = useState('');
+  
+  // Risk assessment
+  const [riskAssessment, setRiskAssessment] = useState(null);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const docRef = doc(db, 'profile', 'user1');
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setSurgeryDate(new Date(data.surgeryDate));
+        setWeight(data.weight?.toString() || '');
+        setInjuredQuadStrength(data.injuredQuadStrength?.toString() || '');
+        setNonInjuredQuadStrength(data.nonInjuredQuadStrength?.toString() || '');
+        setInjuredHamstringStrength(data.injuredHamstringStrength?.toString() || '');
+        setNonInjuredHamstringStrength(data.nonInjuredHamstringStrength?.toString() || '');
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
 
   const handleSave = async () => {
     try {
-      await setDoc(doc(db, 'profile', 'user1'), {
+      const profileData = {
         surgeryDate: surgeryDate.toISOString(),
         weight: Number(weight),
-        quadLSI: Number(quadLSI),
-      });
+        injuredQuadStrength: Number(injuredQuadStrength),
+        nonInjuredQuadStrength: Number(nonInjuredQuadStrength),
+        injuredHamstringStrength: Number(injuredHamstringStrength),
+        nonInjuredHamstringStrength: Number(nonInjuredHamstringStrength),
+      };
+
+      await setDoc(doc(db, 'profile', 'user1'), profileData);
+      
+      // Calculate risk assessment
+      const assessment = assessRisk(profileData);
+      setRiskAssessment(assessment);
+      
       setMessage('Profile saved!');
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -62,10 +104,59 @@ export default function ProfileScreen({ theme }) {
       fontWeight: 'bold',
       color: 'green',
     },
+    riskCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 15,
+      marginTop: 20,
+      marginBottom: 20,
+    },
+    riskTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      color: colors.text,
+    },
+    riskLevel: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginBottom: 10,
+    },
+    riskFactor: {
+      marginTop: 5,
+      color: colors.text,
+    },
+    recommendation: {
+      marginTop: 10,
+      padding: 10,
+      backgroundColor: colors.background,
+      borderRadius: 5,
+    },
+    recommendationTitle: {
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    recommendationText: {
+      color: colors.text,
+      marginTop: 5,
+    },
   });
 
+  const getRiskLevelColor = (level) => {
+    switch (level) {
+      case 'High':
+        return '#ff4444';
+      case 'Moderate':
+        return '#ffbb33';
+      case 'Low':
+        return '#00C851';
+      default:
+        return colors.text;
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.title}>🧍 Your Profile</Text>
 
       <Text style={styles.label}>Surgery Date:</Text>
@@ -92,18 +183,72 @@ export default function ProfileScreen({ theme }) {
         placeholderTextColor={colors.placeholder}
       />
 
-      <Text style={styles.label}>Quad Strength (LSI %):</Text>
+      <Text style={styles.label}>Injured Leg Quad Strength (lbs):</Text>
       <TextInput
         style={styles.input}
         keyboardType="numeric"
-        value={quadLSI}
-        onChangeText={setQuadLSI}
-        placeholder="e.g. 85"
+        value={injuredQuadStrength}
+        onChangeText={setInjuredQuadStrength}
+        placeholder="e.g. 120"
+        placeholderTextColor={colors.placeholder}
+      />
+
+      <Text style={styles.label}>Non-Injured Leg Quad Strength (lbs):</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={nonInjuredQuadStrength}
+        onChangeText={setNonInjuredQuadStrength}
+        placeholder="e.g. 130"
+        placeholderTextColor={colors.placeholder}
+      />
+
+      <Text style={styles.label}>Injured Leg Hamstring Strength (lbs):</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={injuredHamstringStrength}
+        onChangeText={setInjuredHamstringStrength}
+        placeholder="e.g. 75"
+        placeholderTextColor={colors.placeholder}
+      />
+
+      <Text style={styles.label}>Non-Injured Leg Hamstring Strength (lbs):</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={nonInjuredHamstringStrength}
+        onChangeText={setNonInjuredHamstringStrength}
+        placeholder="e.g. 80"
         placeholderTextColor={colors.placeholder}
       />
 
       <Button title="Save Profile" onPress={handleSave} />
       {message !== '' && <Text style={styles.message}>{message}</Text>}
-    </View>
+
+      {riskAssessment && (
+        <View style={styles.riskCard}>
+          <Text style={styles.riskTitle}>Risk Assessment</Text>
+          <Text style={[styles.riskLevel, { color: getRiskLevelColor(riskAssessment.riskLevel) }]}>
+            {riskAssessment.riskLevel} Risk
+          </Text>
+          
+          <Text style={styles.label}>Risk Factors:</Text>
+          {riskAssessment.factors.map((factor, index) => (
+            <Text key={index} style={styles.riskFactor}>
+              • {factor.factor}: {factor.value} (Threshold: {factor.threshold})
+            </Text>
+          ))}
+
+          <Text style={[styles.label, { marginTop: 15 }]}>Recommendations:</Text>
+          {riskAssessment.recommendations.map((rec, index) => (
+            <View key={index} style={styles.recommendation}>
+              <Text style={styles.recommendationTitle}>{rec.category}</Text>
+              <Text style={styles.recommendationText}>{rec.recommendation}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
   );
 }

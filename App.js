@@ -1,8 +1,7 @@
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useState, useEffect } from 'react';
 import { Appearance } from 'react-native';
-
 import HomeScreen from './screens/HomeScreen';
 import LogScreen from './screens/LogScreen';
 import HistoryScreen from './screens/HistoryScreen';
