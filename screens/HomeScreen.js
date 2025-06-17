@@ -245,6 +245,16 @@ export default function HomeScreen({ route, theme }) {
           </Text>
         </TouchableOpacity>
 
+        <TouchableOpacity 
+          style={styles.card}
+          onPress={() => navigation.navigate('Form')}
+        >
+          <Text style={[styles.cardTitle, { color: '#fff' }]}>🎥 Exercise Form Analysis</Text>
+          <Text style={[styles.cardDescription, { color: '#fff' }]}>
+            Get real-time feedback on your exercise form
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.card}
           onPress={() => navigation.navigate('Profile')}

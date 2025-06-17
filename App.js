@@ -6,6 +6,7 @@ import HomeScreen from './screens/HomeScreen';
 import LogScreen from './screens/LogScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import FormScreen from './screens/FormScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +36,9 @@ export default function App() {
         </Stack.Screen>
         <Stack.Screen name="Profile">
           {(props) => <ProfileScreen {...props} theme={colorScheme} />}
+        </Stack.Screen>
+        <Stack.Screen name="Form">
+          {(props) => <FormScreen {...props} theme={colorScheme} />}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>

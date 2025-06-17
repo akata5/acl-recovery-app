@@ -4,6 +4,7 @@ import Slider from '@react-native-community/slider';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { lightColors, darkColors } from '../theme'; // ✅ import colors
+import { useNavigation } from '@react-navigation/native';
 
 const convertTimestampToDate = (timestamp) => {
   if (!timestamp) return new Date();
